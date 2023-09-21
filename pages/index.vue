@@ -23,13 +23,15 @@
             <div class="tasks__item" v-for="(item, i) in 25" :key="i" :id="i">
                 <client-only>
                     <div v-if="inventory[i].img != null && !loaded">
-                        <img :id="i" class="item__img" :src="inventory[i].img" alt="img-item">
-                        <div class="item__counter">
+                        <img :id="i" class="item__img" :src="inventory[i].img" alt="img-item" @click="openModalDelete(i)">
+                        <div class="item__counter" @click="openModalCount(i)">
                             <span :id="i" class="counter__text">{{ inventory[i].count }}</span>
                         </div>
                     </div>
                 </client-only>
             </div>
+            <modal v-if="boolModal" class="modal" :inventory="element" :countBool="modalCount" @closeModal="closeModal()"
+                @confirmCount="confirm($event)" @deleteInventory="deleteInventory()" />
         </div>
         <div class="bottom">
             <div class="bottom__data"></div>
@@ -41,17 +43,31 @@
             </svg>
 
         </div>
+        <button class="button__reload" @click="reloadInventory()">Сбросить к исходным параметрам</button>
     </div>
 </template>
 
 <style>
 body {
-    font-family: "Tahoma", sans-serif;
-    font-size: 18px;
-    line-height: 25px;
-    color: #164a44;
-
+    font-family: "SF Pro Display", sans-serif;
     background-color: #1D1D1D;
+}
+
+.modal {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    animation: shineModal 1.5s 1;
+}
+
+@keyframes shineModal {
+    0% {
+        transform: translateX(+100%);
+    }
+
+    100% {
+        transform: translateX(0%);
+    }
 }
 
 .left {
@@ -154,17 +170,18 @@ body {
     top: 32px;
     left: 292px;
     border-radius: 12px;
-    /* border: 1px solid #4D4D4D; */
+    border: 1px solid #4D4D4D;
     background-color: #262626;
     display: flex;
     flex-wrap: wrap;
+    overflow: hidden;
 }
 
 .tasks__item {
     transition: background-color 0.5s;
     text-align: center;
     border: 1px solid #4D4D4D;
-    border-radius: 12px;
+    /* border-radius: 12px; */
     cursor: pointer;
     transition: background-color 0.5s;
     min-width: 103.6px;
@@ -175,7 +192,7 @@ body {
 .item__counter {
     text-align: center;
     border: 1px solid #4D4D4D;
-    border-radius: 6px 0px 12px 0px;
+    border-radius: 6px 0px 0px 0px;
     width: 16px;
     height: 16px;
     position: absolute;
@@ -208,15 +225,39 @@ body {
 .selected {
     opacity: 0.6;
 }
+
+.button__reload {
+    width: 500px;
+    height: 40px;
+    position: fixed;
+    top: 650px;
+    left: 160px;
+    background: #FA7272;
+    border-radius: 8px;
+    border: 0px;
+    color: white;
+    font-size: 18px;
+    line-height: 16.71px;
+}
+
+button:hover {
+    cursor: pointer;
+}
 </style>
 
 <script>
+import modal from '~/components/modal.vue'
 export default {
+    components: { modal },
     data: () => ({
         inventory: [{ count: 4, img: "green.png" }, { count: 3, img: "yellow.png" }, { count: 2, img: "fiolet.png" }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
         currentElement: null,
         nextElement: null,
         loaded: true,
+        boolModal: false,
+        modalCount: false,
+        indexItemModal: null,
+        element: { count: 4, img: "green.png" }
     }),
     beforeMount() {
         if (JSON.parse(localStorage.getItem("inventory")) != null) {
@@ -227,22 +268,23 @@ export default {
     },
     mounted() {
         if (!this.loaded) {
-            const tasksListElement = document.querySelector(`.tasks__table`);
-            const taskElements = tasksListElement.querySelectorAll(`.tasks__item`);
+            const tasksListElement = document.querySelector(`.tasks__table`)
+            const taskElements = tasksListElement.querySelectorAll(`.tasks__item`)
 
             for (const task of taskElements) {
-                task.draggable = true;
+                task.draggable = true
             }
             tasksListElement.addEventListener(`dragstart`, (evt) => {
-                evt.target.classList.add(`selected`);
+                evt.target.classList.add(`selected`)
                 this.currentElement = evt.target.id
             })
 
             tasksListElement.addEventListener(`dragend`, (evt) => {
-                evt.target.classList.remove(`selected`);
+                evt.target.classList.remove(`selected`)
                 let el = this.inventory[this.currentElement]
                 let i = 0
                 if (Number(this.currentElement) < Number(this.nextElement)) {
+                    console.log(this.inventory[1])
                     for (i = Number(this.currentElement); i < Number(this.nextElement) - 1; i++) {
                         this.inventory[i] = this.inventory[i + 1]
                     }
@@ -261,10 +303,10 @@ export default {
             tasksListElement.addEventListener(`dragover`, (evt) => {
                 evt.preventDefault();
 
-                const activeElement = tasksListElement.querySelector(`.selected`);
-                const currentElement = evt.target;
+                const activeElement = tasksListElement.querySelector(`.selected`)
+                const currentElement = evt.target
                 const isMoveable = activeElement !== currentElement &&
-                    currentElement.classList.contains(`tasks__item`);
+                    currentElement.classList.contains(`tasks__item`)
 
                 if (!isMoveable) {
                     return;
@@ -272,10 +314,41 @@ export default {
 
                 const nextElement = (currentElement === activeElement.nextElementSibling) ?
                     currentElement.nextElementSibling :
-                    currentElement;
+                    currentElement
                 this.nextElement = nextElement.id
-                tasksListElement.insertBefore(activeElement, nextElement);
+                tasksListElement.insertBefore(activeElement, nextElement)
             })
+        }
+    },
+    methods: {
+        closeModal() {
+            this.boolModal = false
+        },
+        openModalCount(i) {
+            this.modalCount = true
+            this.element = this.inventory[i]
+            this.indexItemModal = i
+            this.boolModal = true
+        },
+        openModalDelete(i) {
+            this.modalCount = false
+            this.element = this.inventory[i]
+            this.indexItemModal = i
+            this.boolModal = true
+        },
+        confirm(data) {
+            this.inventory[this.indexItemModal].count = Number(data.count)
+            localStorage.setItem('inventory', JSON.stringify(this.inventory))
+        },
+        deleteInventory() {
+            this.inventory[this.indexItemModal] = {}
+            localStorage.setItem('inventory', JSON.stringify(this.inventory))
+            this.boolModal = false
+        },
+        reloadInventory() {
+            const inventory = [{ count: 4, img: "green.png" }, { count: 3, img: "yellow.png" }, { count: 2, img: "fiolet.png" }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]
+            localStorage.setItem('inventory', JSON.stringify(inventory))
+            this.inventory = inventory
         }
     }
 }
