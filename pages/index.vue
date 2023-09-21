@@ -20,8 +20,15 @@
             </div>
         </div>
         <div class="tasks__table">
-            <div class="tasks__item" v-for="(item, i) in 25" :key="i">{{
-                i }}
+            <div class="tasks__item" v-for="(item, i) in 25" :key="i" :id="i">
+                <client-only>
+                    <div v-if="inventory[i].img != null && !loaded">
+                        <img :id="i" class="item__img" :src="inventory[i].img" alt="img-item">
+                        <div class="item__counter">
+                            <span :id="i" class="counter__text">{{ inventory[i].count }}</span>
+                        </div>
+                    </div>
+                </client-only>
             </div>
         </div>
         <div class="bottom">
@@ -88,7 +95,7 @@ body {
     z-index: 2;
     background: linear-gradient(90deg, #3C3C3C 0%, #444444 51.04%, #333333 100%);
     transform: translateX(-100%);
-    animation: shine 1.5s infinite 3s;
+    animation: shine 1.5s infinite 0s;
 }
 
 .bottom {
@@ -121,7 +128,7 @@ body {
     z-index: 2;
     background: linear-gradient(90deg, #3C3C3C 0%, #444444 51.04%, #333333 100%);
     transform: translateX(-100%);
-    animation: shine 1.5s infinite 3s;
+    animation: shine 1.5s infinite 0s;
 }
 
 @keyframes shine {
@@ -147,7 +154,7 @@ body {
     top: 32px;
     left: 292px;
     border-radius: 12px;
-    border: 1px solid #4D4D4D;
+    /* border: 1px solid #4D4D4D; */
     background-color: #262626;
     display: flex;
     flex-wrap: wrap;
@@ -162,6 +169,40 @@ body {
     transition: background-color 0.5s;
     min-width: 103.6px;
     height: 98px;
+    position: relative;
+}
+
+.item__counter {
+    text-align: center;
+    border: 1px solid #4D4D4D;
+    border-radius: 6px 0px 12px 0px;
+    width: 16px;
+    height: 16px;
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+}
+
+.counter__text {
+    width: 8x;
+    height: 12px;
+    position: absolute;
+    left: 4px;
+    top: 2px;
+    font-size: 10px;
+    line-height: 12.1px;
+    align-content: center;
+    color: white;
+    opacity: 0.4;
+
+}
+
+.item__img {
+    width: 54px;
+    height: 54px;
+    position: absolute;
+    left: 25px;
+    top: 23px;
 }
 
 .selected {
@@ -172,41 +213,70 @@ body {
 <script>
 export default {
     data: () => ({
-        str: "hi"
+        inventory: [{ count: 4, img: "green.png" }, { count: 3, img: "yellow.png" }, { count: 2, img: "fiolet.png" }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}],
+        currentElement: null,
+        nextElement: null,
+        loaded: true,
     }),
-    mounted() {
-        const tasksListElement = document.querySelector(`.tasks__table`);
-        const taskElements = tasksListElement.querySelectorAll(`.tasks__item`);
-
-        for (const task of taskElements) {
-            task.draggable = true;
+    beforeMount() {
+        if (JSON.parse(localStorage.getItem("inventory")) != null) {
+            this.inventory = []
+            this.inventory = JSON.parse(localStorage.getItem("inventory"))
         }
-        tasksListElement.addEventListener(`dragstart`, (evt) => {
-            evt.target.classList.add(`selected`);
-        })
+        this.loaded = false
+    },
+    mounted() {
+        if (!this.loaded) {
+            const tasksListElement = document.querySelector(`.tasks__table`);
+            const taskElements = tasksListElement.querySelectorAll(`.tasks__item`);
 
-        tasksListElement.addEventListener(`dragend`, (evt) => {
-            evt.target.classList.remove(`selected`);
-        });
-        tasksListElement.addEventListener(`dragover`, (evt) => {
-            evt.preventDefault();
-
-            const activeElement = tasksListElement.querySelector(`.selected`);
-            const currentElement = evt.target;
-            const isMoveable = activeElement !== currentElement &&
-                currentElement.classList.contains(`tasks__item`);
-
-            if (!isMoveable) {
-                return;
+            for (const task of taskElements) {
+                task.draggable = true;
             }
+            tasksListElement.addEventListener(`dragstart`, (evt) => {
+                evt.target.classList.add(`selected`);
+                this.currentElement = evt.target.id
+            })
 
-            const nextElement = (currentElement === activeElement.nextElementSibling) ?
-                currentElement.nextElementSibling :
-                currentElement;
+            tasksListElement.addEventListener(`dragend`, (evt) => {
+                evt.target.classList.remove(`selected`);
+                let el = this.inventory[this.currentElement]
+                let i = 0
+                if (Number(this.currentElement) < Number(this.nextElement)) {
+                    for (i = Number(this.currentElement); i < Number(this.nextElement) - 1; i++) {
+                        this.inventory[i] = this.inventory[i + 1]
+                    }
+                    this.inventory[i] = el
+                    localStorage.setItem("inventory", JSON.stringify(this.inventory))
+                    location.reload()
+                } else if (Number(this.currentElement) > Number(this.nextElement)) {
+                    for (i = Number(this.currentElement); i > Number(this.nextElement); i--) {
+                        this.inventory[i] = this.inventory[i - 1]
+                    }
+                    this.inventory[i] = el
+                    localStorage.setItem("inventory", JSON.stringify(this.inventory))
+                    location.reload()
+                }
+            });
+            tasksListElement.addEventListener(`dragover`, (evt) => {
+                evt.preventDefault();
 
-            tasksListElement.insertBefore(activeElement, nextElement);
-        });
+                const activeElement = tasksListElement.querySelector(`.selected`);
+                const currentElement = evt.target;
+                const isMoveable = activeElement !== currentElement &&
+                    currentElement.classList.contains(`tasks__item`);
 
+                if (!isMoveable) {
+                    return;
+                }
+
+                const nextElement = (currentElement === activeElement.nextElementSibling) ?
+                    currentElement.nextElementSibling :
+                    currentElement;
+                this.nextElement = nextElement.id
+                tasksListElement.insertBefore(activeElement, nextElement);
+            })
+        }
     }
 }
 </script>
